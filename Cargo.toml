@@ -17,5 +17,4 @@ anyhow = "1.0"
 uuid = { version = "1.6.1", features = ["v4"] }
 futures = "0.3"
 tokio-websockets = "0.1"
-regex = "1.10"
-EOF"
+rust_decimal = "1.34"

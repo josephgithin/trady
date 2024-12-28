@@ -47,7 +47,7 @@ impl ExchangeAdapterImpl {
         }
 
         let sink_topic = format!("price.feed.{}", name.to_string().to_lowercase());
-        
+
         Ok(ExchangeAdapterImpl {
             api_url: config.api_url,
             pairs: config.pairs,
@@ -67,7 +67,7 @@ impl ExchangeAdapterImpl {
         if parts.len() != 2 {
             return false;
         }
-        
+
         parts.iter().all(|p| {
             !p.is_empty() && p.chars().all(|c| c.is_ascii_alphabetic())
         })
@@ -80,24 +80,24 @@ impl ExchangeAdapterImpl {
          // Base implementation just logs - specific adapters will override this
          Ok(())
      }
- 
+
      async fn process_message(&self) -> Result<Option<T>, Error> {
          // Base implementation returns None - specific adapters will override this
          Ok(None)
      }
- 
+
      async fn start(&self, _callback: fn(T)) -> Result<(), Error> {
          info!("Starting exchange adapter for {}", self.get_api_url());
          // Base implementation just logs - specific adapters will override this
          Ok(())
      }
- 
+
      async fn stop(&self) -> Result<(), Error> {
          info!("Stopping exchange adapter for {}", self.get_api_url());
          // Base implementation just logs - specific adapters will override this
          Ok(())
      }
- 
+
      fn get_sink_topics(&self) -> Vec<String> {
          self.sink_topics.clone()
      }
@@ -107,25 +107,25 @@ impl ExchangeAdapterImpl {
      fn get_api_url(&self) -> String {
          self.api_url.clone()
      }
- 
+
      fn get_pairs(&self) -> Vec<String> {
          self.pairs.clone()
      }
- 
+
      fn get_exchange_name(&self) -> ExchangeName {
          self.exchange_name
      }
  }
- 
+
  #[cfg(test)]
  mod tests {
      use super::*;
- 
+
      #[test]
      fn test_valid_trading_pair() {
          assert!(ExchangeAdapterImpl::is_valid_trading_pair("BTC-USD"));
          assert!(ExchangeAdapterImpl::is_valid_trading_pair("ETH-EUR"));
-         
+
          // Invalid cases
          assert!(!ExchangeAdapterImpl::is_valid_trading_pair(""));
          assert!(!ExchangeAdapterImpl::is_valid_trading_pair("BTC"));
@@ -134,23 +134,23 @@ impl ExchangeAdapterImpl {
          assert!(!ExchangeAdapterImpl::is_valid_trading_pair("BTC-USD-EUR"));
          assert!(!ExchangeAdapterImpl::is_valid_trading_pair("BTC123-USD"));
      }
- 
+
      #[test]
      fn test_exchange_adapter_creation() {
          let config = ExchangeConfig {
              api_url: "wss://example.com".to_string(),
              pairs: vec!["BTC-USD".to_string()],
          };
- 
+
          let adapter = ExchangeAdapterImpl::new(config, ExchangeName::Coinbase);
          assert!(adapter.is_ok());
- 
+
          let config_empty_url = ExchangeConfig {
              api_url: "".to_string(),
              pairs: vec!["BTC-USD".to_string()],
          };
          assert!(ExchangeAdapterImpl::new(config_empty_url, ExchangeName::Coinbase).is_err());
- 
+
          let config_empty_pairs = ExchangeConfig {
              api_url: "wss://example.com".to_string(),
              pairs: vec![],
@@ -158,4 +158,3 @@ impl ExchangeAdapterImpl {
          assert!(ExchangeAdapterImpl::new(config_empty_pairs, ExchangeName::Coinbase).is_err());
      }
 }
-EOF"

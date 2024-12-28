@@ -22,5 +22,8 @@ impl ShutdownSignal {
         let mut rx = self.sender.subscribe();
         let _ = rx.recv().await;
     }
-}
 
+    pub fn is_shutdown(&self) -> bool {
+        self.sender.receiver_count() == 0
+    }
+}

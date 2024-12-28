@@ -1,17 +1,15 @@
 //! Trading platform core library
-//! 
+//!
 //! This library provides the core functionality for the trading platform,
 //! including common types, enums, and constants used throughout the system.
 
 pub mod common {
-    use thiserror::Error;
-
     /// Common error types for the trading platform
     pub mod types {
-        use super::Error as CommonError;
+        use thiserror::Error;
 
         /// Result type alias using our custom error type
-        pub type Result<T> = std::result::Result<T, CommonError>;
+        pub type Result<T> = std::result::Result<T, Error>;
 
         #[derive(Debug, Error)]
         pub enum Error {
@@ -29,6 +27,12 @@ pub mod common {
 
             #[error("Serialization error: {0}")]
             SerializationError(String),
+
+            #[error("Parse error: {0}")]
+            ParseError(String),
+
+            #[error("Operation error: {0}")]
+            OperationError(String),
 
             #[error("Publish error: {0}")]
             PublishError(String),
@@ -119,6 +123,7 @@ pub mod common {
 
         /// Trading side
         #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+        #[serde(rename_all = "UPPERCASE")]
         pub enum TradeSide {
             Buy,
             Sell,

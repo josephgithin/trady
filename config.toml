@@ -2,7 +2,6 @@
 [event_bus]
 type = "zmq"
 zmq_address = "tcp://127.0.0.1:5555"
-heartbeat_interval = 5000  # milliseconds
 
 # Component Configurations
 [components]
@@ -10,37 +9,25 @@ heartbeat_interval = 5000  # milliseconds
  [components.exchanges.kraken]
  enabled = true
  api_url = "wss://ws.kraken.com"
- api_key = ""  # Add your API key here
- api_secret = ""  # Add your API secret here
  pairs = ["XBT/USD", "ETH/USD"]
- reconnect_interval = 5000  # milliseconds
- max_reconnect_attempts = 3
- 
+
  [components.exchanges.coinbase]
  enabled = true
  api_url = "wss://ws-feed.exchange.coinbase.com"
- api_key = ""  # Add your API key here
- api_secret = ""  # Add your API secret here
  pairs = ["BTC-USD", "ETH-USD"]
- reconnect_interval = 5000  # milliseconds
- max_reconnect_attempts = 3
 
  # Strategy configurations
  [components.strategies.arbitrage]
  enabled = true
- pairs = ["XBT/USD", "ETH/USD"]
- exchanges = ["kraken", "coinbase"]
  params = {
      arbitrage_threshold = 0.01,  # 1% minimum spread
      min_profit = 100.0,         # Minimum profit in USD
      max_position_size = 1.0,    # Maximum position size in BTC
      execution_timeout = 5000    # milliseconds
  }
- 
+
  [components.strategies.mean_reversion]
  enabled = false
- pairs = ["BTC-USD", "ETH-USD"]
- exchanges = ["coinbase"]
  params = {
      moving_average_period = 20,
      entry_threshold = 2.0,
@@ -69,7 +56,7 @@ heartbeat_interval = 5000  # milliseconds
      min_samples = 10,
      update_interval = 1000  # milliseconds
  }
- 
+
  [components.data_transformations.threshold_filter]
  enabled = true
  source_topic = "market.data.sma"
@@ -86,24 +73,21 @@ heartbeat_interval = 5000  # milliseconds
  port = 8080
  topics = ["market.data", "market.signals", "orders", "trades", "metrics", "audit"]
  refresh_interval = 1000  # milliseconds
- 
+
  # Logging configuration
  [components.logging]
  enabled = true
  level = "info"  # debug, info, warn, error
  file = "trading_platform.log"
- max_size = 100  # MB
- max_files = 5
  topics = ["market.data", "market.signals", "orders", "trades", "metrics", "audit"]
- 
+
  # Metrics configuration
  [components.metrics]
  enabled = true
  host = "127.0.0.1"
  port = 9090
- export_interval = 10000  # milliseconds
  topics = ["market.data", "orders", "trades", "performance"]
- 
+
  # Audit configuration
  [components.audit]
  enabled = true
@@ -122,7 +106,7 @@ heartbeat_interval = 5000  # milliseconds
      password = "",  # Add your database password here
      max_connections = 5
  }
- 
+
  # Security configuration
  [security]
  type = "jwt"  # basic, jwt
@@ -132,7 +116,7 @@ heartbeat_interval = 5000  # milliseconds
      { username = "admin", password = "", role = "admin" },  # Add hashed password here
      { username = "trader", password = "", role = "trader" }  # Add hashed password here
  ]
- 
+
  # Rate limiting
  [security.rate_limit]
  enabled = true

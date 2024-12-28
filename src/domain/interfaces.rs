@@ -1,4 +1,3 @@
-'EOF'
 use async_trait::async_trait;
 use std::fmt::Debug;
 use crate::common::types::Error;
@@ -56,7 +55,7 @@ pub trait StrategyPort: Send + Sync + Debug {
     /// Configures the strategy with new parameters
     async fn configure_strategy(&mut self, config: StrategyConfig) -> Result<(), Error>;
 
-    /// Returns the current strategy configuration
+     /// Returns the current strategy configuration
     async fn get_strategy_config(&self) -> Result<StrategyConfig, Error>;
 
     /// Returns the list of sink topics
@@ -82,7 +81,6 @@ pub trait BrokerPort: Send + Sync + Debug {
 
     /// Stops the broker connection
     async fn stop(&self) -> Result<(), Error>;
-
     /// Returns the list of sink topics
     fn get_sink_topics(&self) -> Vec<String>;
 }
@@ -123,12 +121,12 @@ pub trait Subscriber<T: Send + Sync + Debug>: Send + Sync + Debug {
     async fn on_event(&self, event: T);
 
     /// Subscribes to events with a callback
-    fn subscribe(&self, callback: fn(T)) -> Result<(), Error>;
+    async fn subscribe(&self, callback: fn(T)) -> Result<(), Error>;
 
     /// Returns the list of source topics
     fn get_source_topics(&self) -> Vec<String>;
 
-    /// Starts the subscriber
+     /// Starts the subscriber
     async fn start(&self) -> Result<(), Error>;
 
     /// Stops the subscriber

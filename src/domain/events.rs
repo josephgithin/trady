@@ -1,13 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::common::enums::{ExchangeName, StrategyName};
-
-/// Represents the trading side (buy/sell)
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum TradeSide {
-    Buy,
-    Sell,
-}
+use crate::common::enums::{ExchangeName, StrategyName, TradeSide};
 
 /// Represents the status of an order
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -58,6 +50,12 @@ pub struct OrderStatusEvent {
     pub fill_price: f64,
     pub reason: String,
 }
+/// User input event
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserInputEvent {
+     pub action: String,
+     pub value: Option<String>
+}
 
 /// Domain events that can occur in the trading system
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -65,6 +63,7 @@ pub enum DomainEvent {
     PriceUpdate(PriceUpdateEvent),
     TradeSignal(TradeSignalEvent),
     OrderStatus(OrderStatusEvent),
+     UserInput(UserInputEvent)
 }
 
 impl ExchangeData {

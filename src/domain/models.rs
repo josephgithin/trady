@@ -1,31 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use rust_decimal::Decimal;
-use crate::common::enums::StrategyName;
-
-/// Represents the side of an order (buy/sell)
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum OrderSide {
-    Buy,
-    Sell,
-}
-
-/// Represents the type of order
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum OrderType {
-    Market,
-    Limit,
-    StopLoss,
-    TakeProfit,
-}
+use crate::common::enums::{StrategyName, TradeSide, OrderType};
 
 /// Represents a trading order
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Order {
     pub symbol: String,
-    pub side: OrderSide,
+    pub side: TradeSide,
     #[serde(with = "rust_decimal::serde::float")]
     pub size: f64,
     #[serde(with = "rust_decimal::serde::float")]
@@ -45,7 +27,7 @@ impl Order {
     /// Creates a new order with validation
     pub fn new(
         symbol: String,
-        side: OrderSide,
+        side: TradeSide,
         size: f64,
         price: f64,
         order_type: OrderType,
@@ -71,28 +53,28 @@ impl Order {
 
     /// Creates a new market buy order
     pub fn market_buy(symbol: String, size: f64) -> Result<Self, &'static str> {
-        Self::new(symbol, OrderSide::Buy, size, 0.0, OrderType::Market)
+        Self::new(symbol, TradeSide::Buy, size, 0.0, OrderType::Market)
     }
 
     /// Creates a new market sell order
     pub fn market_sell(symbol: String, size: f64) -> Result<Self, &'static str> {
-        Self::new(symbol, OrderSide::Sell, size, 0.0, OrderType::Market)
+        Self::new(symbol, TradeSide::Sell, size, 0.0, OrderType::Market)
     }
 
     /// Creates a new limit buy order
     pub fn limit_buy(symbol: String, size: f64, price: f64) -> Result<Self, &'static str> {
-        Self::new(symbol, OrderSide::Buy, size, price, OrderType::Limit)
+        Self::new(symbol, TradeSide::Buy, size, price, OrderType::Limit)
     }
 
     /// Creates a new limit sell order
     pub fn limit_sell(symbol: String, size: f64, price: f64) -> Result<Self, &'static str> {
-        Self::new(symbol, OrderSide::Sell, size, price, OrderType::Limit)
+        Self::new(symbol, TradeSide::Sell, size, price, OrderType::Limit)
     }
 }
 
 impl StrategyConfig {
     /// Creates a new strategy configuration
-    pub fn new(strategy_name: StrategyName, params: HashMap<String, String>, enabled: bool) -> Self {
+   pub fn new(strategy_name: StrategyName, params: HashMap<String, String>, enabled: bool) -> Self {
         Self {
             strategy_name,
             params,
@@ -105,7 +87,7 @@ impl StrategyConfig {
         self.params.get(key)
     }
 
-    /// Gets a parameter value as a float
+     /// Gets a parameter value as a float
     pub fn get_param_as_f64(&self, key: &str) -> Option<f64> {
         self.params
             .get(key)
@@ -137,7 +119,7 @@ mod tests {
         assert!(Order::market_buy("BTC-USD".to_string(), 0.0).is_err());
         assert!(Order::market_buy("BTC-USD".to_string(), -1.0).is_err());
         assert!(Order::limit_buy("BTC-USD".to_string(), 1.0, -1.0).is_err());
-        
+
         let valid_order = Order::market_buy("BTC-USD".to_string(), 1.0);
         assert!(valid_order.is_ok());
     }
@@ -149,7 +131,7 @@ mod tests {
         params.insert("enabled".to_string(), "true".to_string());
 
         let config = StrategyConfig::new(StrategyName::MeanReversion, params, true);
-        
+
         assert_eq!(config.get_param_as_f64("threshold"), Some(0.5));
         assert_eq!(config.get_param_as_bool("enabled"), Some(true));
         assert_eq!(config.get_param_as_f64("nonexistent"), None);
