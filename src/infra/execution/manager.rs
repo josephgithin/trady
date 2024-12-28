@@ -68,7 +68,6 @@ impl ExecutionManager {
     }
 }
 
-#[async_trait]
 impl ExecutionManager {
     /// Handles incoming trade signals
     pub async fn handle_trade_signal(&self, event: TradeSignalEvent) -> Result<(), Error> {
@@ -106,8 +105,11 @@ impl ExecutionManager {
     }
 
     /// Starts the execution manager
-    pub async fn start(&self, callback: fn(OrderStatusEvent)) -> Result<(), Error> {
-         info!("Starting execution manager");
+    pub async fn start<F>(&self, callback: F) -> Result<(), Error> 
+    where
+        F: Fn(OrderStatusEvent) + Send + Sync + 'static
+    {
+        info!("Starting execution manager");
 
         if self.is_running.load(std::sync::atomic::Ordering::SeqCst) {
             return Err(Error::OperationError("Execution manager already running".to_string()));
@@ -118,15 +120,18 @@ impl ExecutionManager {
             .ok_or_else(|| Error::OperationError("Broker not available".to_string()))?;
 
          let active_orders = Arc::clone(&self.active_orders);
-        let wrapped_callback = move |status: OrderStatusEvent| {
-          if !status.order_id.is_empty() {
-            tokio::spawn(async move {
-               active_orders.lock().await.remove(&status.order_id);
-            });
-          }
-         callback(status);
-      };
-         broker.start(wrapped_callback).await?;
+         let wrapped_callback = move |status: OrderStatusEvent| {
+             let active_orders = Arc::clone(&active_orders);
+             if !status.order_id.is_empty() {
+                 let order_id = status.order_id.clone();  // Clone the order_id before moving
+                 tokio::spawn(async move {
+                     active_orders.lock().await.remove(&order_id);
+                 });
+             }
+             callback(status);
+         };
+         
+         broker.start(Box::new(wrapped_callback)).await?;
         self.is_running.store(true, std::sync::atomic::Ordering::SeqCst);
 
         Ok(())

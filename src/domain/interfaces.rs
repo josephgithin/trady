@@ -8,32 +8,29 @@ use crate::domain::models::StrategyConfig;
 pub trait EventBusPort: Send + Sync + Debug {
     type EventType: Send + Sync + Debug;
 
-    /// Publishes an event to the specified topic
     async fn publish(&self, event: Self::EventType, topic: String) -> Result<(), Error>;
+    
+    // Change these to accept boxed closures instead of fn pointers
+    async fn subscribe<F>(&self, topic: String, callback: F) -> Result<(), Error>
+    where
+        F: FnMut(Self::EventType) + Send + 'static;
+    
+    async fn subscribe_many<F>(&self, topics: Vec<String>, callback: F) -> Result<(), Error>
+    where
+        F: FnMut(Self::EventType) + Send + 'static;
 
-    /// Subscribes to a single topic with a callback
-    async fn subscribe(&self, topic: String, callback: fn(Self::EventType)) -> Result<(), Error>;
-
-    /// Subscribes to multiple topics with a single callback
-    async fn subscribe_many(&self, topics: Vec<String>, callback: fn(Self::EventType)) -> Result<(), Error>;
+    async fn shutdown(&self) -> Result<(), Error>;
 }
 
 /// Data adapter interface for connecting to and processing data from external sources
 #[async_trait]
-pub trait DataAdapterPort<T: Send + Sync + Debug>: Send + Sync + Debug {
-    /// Establishes connection to the data source
+pub trait DataAdapterPort<T>: Send + Sync + Debug {
     async fn connect(&self) -> Result<(), Error>;
-
-    /// Processes a single message from the data source
     async fn process_message(&self) -> Result<Option<T>, Error>;
-
-    /// Starts processing messages with the provided callback
-    async fn start(&self, callback: fn(T)) -> Result<(), Error>;
-
-    /// Stops processing messages
+    async fn start<F>(&self, callback: F) -> Result<(), Error>
+    where
+        F: FnMut(T) + Send + 'static;
     async fn stop(&self) -> Result<(), Error>;
-
-    /// Returns the list of sink topics
     fn get_sink_topics(&self) -> Vec<String>;
 }
 
@@ -43,27 +40,17 @@ pub trait StrategyPort: Send + Sync + Debug {
     type EventType: Send + Sync + Debug;
     type TradeSignalType: Send + Sync + Debug;
 
-    /// Analyzes market data and generates trading signals
     async fn analyze_market_data(&self, event: Self::EventType) -> Result<Vec<Self::TradeSignalType>, Error>;
-
-    /// Starts the strategy with the provided callback for signals
-    async fn start(&self, callback: fn(Self::TradeSignalType)) -> Result<(), Error>;
-
-    /// Stops the strategy
+    async fn start<F>(&self, callback: F) -> Result<(), Error>
+    where
+        F: FnMut(Self::TradeSignalType) + Send + 'static;
     async fn stop(&self) -> Result<(), Error>;
-
-    /// Configures the strategy with new parameters
     async fn configure_strategy(&mut self, config: StrategyConfig) -> Result<(), Error>;
-
-     /// Returns the current strategy configuration
     async fn get_strategy_config(&self) -> Result<StrategyConfig, Error>;
-
-    /// Returns the list of sink topics
     fn get_sink_topics(&self) -> Vec<String>;
-
-    /// Returns the list of source topics
     fn get_source_topics(&self) -> Vec<String>;
 }
+
 /// Broker interface for placing orders and managing order status
 #[async_trait]
 pub trait BrokerPort: Send + Sync + Debug {
@@ -77,7 +64,7 @@ pub trait BrokerPort: Send + Sync + Debug {
     async fn get_order_status(&self) -> Result<Option<Self::OrderStatusType>, Error>;
 
     /// Starts the broker connection with status callback
-    async fn start(&self, callback: fn(Self::OrderStatusType)) -> Result<(), Error>;
+    async fn start(&self, callback: Box<dyn Fn(Self::OrderStatusType) + Send + Sync>) -> Result<(), Error>;
 
     /// Stops the broker connection
     async fn stop(&self) -> Result<(), Error>;

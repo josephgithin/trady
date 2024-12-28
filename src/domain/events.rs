@@ -32,7 +32,6 @@ pub struct PriceUpdateEvent {
 pub struct TradeSignalEvent {
     pub symbol: String,
     pub side: TradeSide,
-    #[serde(with = "rust_decimal::serde::float")]
     pub size: f64,
     pub strategy: StrategyName,
 }
@@ -42,19 +41,17 @@ pub struct TradeSignalEvent {
 pub struct OrderStatusEvent {
     pub order_id: String,
     pub status: OrderStatus,
-    #[serde(with = "rust_decimal::serde::float")]
     pub filled_size: f64,
-    #[serde(with = "rust_decimal::serde::float")]
     pub remaining_size: f64,
-    #[serde(with = "rust_decimal::serde::float")]
     pub fill_price: f64,
     pub reason: String,
 }
+
 /// User input event
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserInputEvent {
-     pub action: String,
-     pub value: Option<String>
+    pub action: String,
+    pub value: Option<String>
 }
 
 /// Domain events that can occur in the trading system
@@ -63,51 +60,5 @@ pub enum DomainEvent {
     PriceUpdate(PriceUpdateEvent),
     TradeSignal(TradeSignalEvent),
     OrderStatus(OrderStatusEvent),
-     UserInput(UserInputEvent)
-}
-
-impl ExchangeData {
-    pub fn new(exchange: ExchangeName, pair: String, price: f64) -> Self {
-        assert!(price >= 0.0, "Price must be non-negative");
-        Self {
-            exchange,
-            pair,
-            price,
-        }
-    }
-}
-
-impl TradeSignalEvent {
-    pub fn new(symbol: String, side: TradeSide, size: f64, strategy: StrategyName) -> Self {
-        assert!(size > 0.0, "Trade size must be positive");
-        Self {
-            symbol,
-            side,
-            size,
-            strategy,
-        }
-    }
-}
-
-impl OrderStatusEvent {
-    pub fn new(
-        order_id: String,
-        status: OrderStatus,
-        filled_size: f64,
-        remaining_size: f64,
-        fill_price: f64,
-        reason: String,
-    ) -> Self {
-        assert!(filled_size >= 0.0, "Filled size must be non-negative");
-        assert!(remaining_size >= 0.0, "Remaining size must be non-negative");
-        assert!(fill_price >= 0.0, "Fill price must be non-negative");
-        Self {
-            order_id,
-            status,
-            filled_size,
-            remaining_size,
-            fill_price,
-            reason,
-        }
-    }
+    UserInput(UserInputEvent)
 }

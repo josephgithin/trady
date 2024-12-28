@@ -39,7 +39,7 @@ impl TradingStrategyImpl {
 }
 
 #[async_trait]
-impl<T: Send + Sync + Debug> StrategyPort for TradingStrategyImpl {
+impl StrategyPort for TradingStrategyImpl {
     type EventType = DomainEvent;
     type TradeSignalType = TradeSignalEvent;
 
@@ -73,5 +73,9 @@ impl<T: Send + Sync + Debug> StrategyPort for TradingStrategyImpl {
 
     fn get_source_topics(&self) -> Vec<String> {
         vec![]
+    }
+
+      fn get_sink_topics(&self) -> Vec<String> {
+        self.sink_topics.clone()
     }
 }

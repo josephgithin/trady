@@ -1,9 +1,7 @@
-use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 use async_trait::async_trait;
 use log::{error, info, warn};
-use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 use zmq::{Context, Socket, SocketType};
 
@@ -65,6 +63,25 @@ impl ZMQEventBus {
         }
         Ok(())
     }
+
+    /// Creates a new socket of the specified type
+    fn create_socket(&self, socket_type: SocketType) -> Result<Socket, Error> {
+        let socket = self.context.socket(socket_type)
+            .map_err(|e| Error::ConnectionError(format!("Failed to create socket: {}", e)))?;
+        Ok(socket)
+    }
+
+    /// Configures a socket with given parameters
+    fn configure_socket(socket: &Socket, config: &SocketConfig) -> Result<(), Error> {
+        socket.set_rcvtimeo(config.timeout_ms)
+            .map_err(|e| Error::ConfigError(format!("Failed to set receive timeout: {}", e)))?;
+
+        socket.set_sndtimeo(config.timeout_ms)
+            .map_err(|e| Error::ConfigError(format!("Failed to set send timeout: {}", e)))?;
+
+        Ok(())
+    }
+
     async fn get_socket(&self, config: SocketConfig) -> Result<Socket, Error> {
         let socket_mutex = match config.socket_type {
             SocketType::PUB => &self.publisher,
@@ -74,21 +91,25 @@ impl ZMQEventBus {
             _ => return Err(Error::ConfigError("Unsupported socket type".to_string())),
         };
 
-        let socket_guard = socket_mutex.lock().await;
-        if let Some(socket) = &*socket_guard {
-            return Ok(socket.clone());
-        }
-        drop(socket_guard);
-
         let mut socket_guard = socket_mutex.lock().await;
-        let socket = self.context.socket(config.socket_type)
-            .map_err(|e| Error::ConnectionError(format!("Failed to create socket: {}", e)))?;
+       
+        if let Some(socket) = &*socket_guard {
+              let new_socket = self.context.socket(socket.get_socket_type()
+                .map_err(|e| Error::ConnectionError(e.to_string()))?)
+                .map_err(|e| Error::ConnectionError(e.to_string()))?;
+             Self::configure_socket(&new_socket, &config)?;
+             if config.is_server {
+                 new_socket.bind(&self.address)
+                .map_err(|e| Error::ConnectionError(format!("Failed to bind new socket: {}", e)))?;
+            } else {
+                 new_socket.connect(&self.address)
+                .map_err(|e| Error::ConnectionError(format!("Failed to connect new socket: {}", e)))?;
+             }
+            return Ok(new_socket);
+         }
 
-        socket.set_rcvtimeo(config.timeout_ms)
-            .map_err(|e| Error::ConfigError(format!("Failed to set receive timeout: {}", e)))?;
-
-        socket.set_sndtimeo(config.timeout_ms)
-            .map_err(|e| Error::ConfigError(format!("Failed to set send timeout: {}", e)))?;
+        let socket = self.create_socket(config.socket_type)?;
+        Self::configure_socket(&socket, &config)?;
 
         if config.is_server {
             socket.bind(&self.address)
@@ -99,9 +120,20 @@ impl ZMQEventBus {
         }
 
         *socket_guard = Some(socket);
-        info!("{:?} socket initialized", config.socket_type);
+         info!("{:?} socket initialized", config.socket_type);
+        
+         let new_socket = self.context.socket(config.socket_type)
+                .map_err(|e| Error::ConnectionError(e.to_string()))?;
+         Self::configure_socket(&new_socket, &config)?;
+         if config.is_server {
+             new_socket.bind(&self.address)
+                .map_err(|e| Error::ConnectionError(format!("Failed to bind new socket: {}", e)))?;
+          } else {
+               new_socket.connect(&self.address)
+                .map_err(|e| Error::ConnectionError(format!("Failed to connect new socket: {}", e)))?;
+          }
 
-        Ok(socket_guard.as_ref().unwrap().clone())
+        Ok(new_socket)
     }
 
     async fn get_publisher(&self) -> Result<Socket, Error> {
@@ -139,42 +171,8 @@ impl ZMQEventBus {
         }
         Err(Error::ConnectionError("Max reconnection attempts reached".to_string()))
     }
-
-
-    async fn get_dealer(&self) -> Result<Socket, zmq::Error> {
-        let dealer_socket = self.dealer.lock().await;
-        if let Some(socket) = &*dealer_socket{
-            return Ok(socket.clone());
-        }
-        drop(dealer_socket);
-        let mut dealer_socket_guard = self.dealer.lock().await;
-        let context = Context::new();
-        let dealer = context.socket(zmq::DEALER)?;
-        dealer.connect(&self.address)?;
-        *dealer_socket_guard = Some(dealer);
-        info!("Dealer socket initialized");
-        return Ok(dealer_socket_guard.as_ref().unwrap().clone());
-
-    }
-
-
-    async fn get_router(&self) -> Result<Socket, zmq::Error> {
-        let router_socket = self.router.lock().await;
-        if let Some(socket) = &*router_socket{
-            return Ok(socket.clone());
-        }
-        drop(router_socket);
-        let mut router_socket_guard = self.router.lock().await;
-        let context = Context::new();
-        let router = context.socket(zmq::ROUTER)?;
-        router.bind(&self.address)?;
-        *router_socket_guard = Some(router);
-        info!("Router socket initialized");
-        return Ok(router_socket_guard.as_ref().unwrap().clone());
-    }
-
-
 }
+
 #[async_trait]
 impl EventBusPort for ZMQEventBus {
     type EventType = DomainEvent;
@@ -207,7 +205,10 @@ impl EventBusPort for ZMQEventBus {
         }
     }
 
-    async fn subscribe(&self, topic: String, callback: fn(Self::EventType)) -> Result<(), Error> {
+    async fn subscribe<F>(&self, topic: String, mut callback: F) -> Result<(), Error>
+    where
+        F: FnMut(Self::EventType) + Send + 'static,
+    {
         Self::validate_topic(&topic)?;
 
         let subscriber = self.get_subscriber().await?;
@@ -242,24 +243,27 @@ impl EventBusPort for ZMQEventBus {
                     }
                 }
             }
-             info!("Subscription loop ended for topic {}", topic_clone);
+            info!("Subscription loop ended for topic {}", topic_clone);
         });
 
         Ok(())
     }
-    async fn subscribe_many(&self, topics: Vec<String>, callback: fn(Self::EventType)) -> Result<(), Error> {
+
+    async fn subscribe_many<F>(&self, topics: Vec<String>, callback: F) -> Result<(), Error>
+    where
+        F: FnMut(Self::EventType) + Send + 'static + Clone,
+    {
         if topics.is_empty() {
             return Err(Error::ValidationError("Topics list cannot be empty".to_string()));
         }
 
         for topic in topics {
-            self.subscribe(topic, callback).await?;
+            self.subscribe(topic, callback.clone()).await?;
         }
         Ok(())
     }
 
-    /// Stops all event bus operations
-    pub async fn shutdown(&self) -> Result<(), Error> {
+    async fn shutdown(&self) -> Result<(), Error> {
         self.is_running.store(false, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
@@ -268,6 +272,8 @@ impl EventBusPort for ZMQEventBus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+    use tokio::time::sleep;
 
     #[test]
     fn test_zmq_event_bus_creation() {
@@ -286,5 +292,32 @@ mod tests {
         assert!(ZMQEventBus::validate_topic("valid.topic").is_ok());
         assert!(ZMQEventBus::validate_topic("").is_err());
         assert!(ZMQEventBus::validate_topic("invalid topic").is_err());
+    }
+
+    #[tokio::test]
+    async fn test_publish_subscribe() {
+        let event_bus = ZMQEventBus::new("tcp://127.0.0.1:5556".to_string()).unwrap();
+        let topic = "test.topic".to_string();
+        
+        let mut received = false;
+        event_bus.subscribe(topic.clone(), move |_event| {
+            received = true;
+        }).await.unwrap();
+
+        // Give some time for the subscription to be established
+        sleep(Duration::from_millis(100)).await;
+
+        // Create a test event
+        let event = DomainEvent::UserInput(crate::domain::events::UserInputEvent {
+            action: "test".to_string(),
+            value: None,
+        });
+
+        event_bus.publish(event, topic).await.unwrap();
+
+        // Wait for the message to be processed
+        sleep(Duration::from_millis(100)).await;
+
+        assert!(received);
     }
 }

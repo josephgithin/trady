@@ -3,11 +3,14 @@ use crate::domain::events::DomainEvent;
 use crate::domain::interfaces::EventBusPort;
 use log::error;
 
-pub async fn publish_event<T: EventBusPort>(
+pub async fn publish_event<T>(
     event_bus: &T,
-    event: DomainEvent,
+    event: T::EventType,
     topic: String,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    T: EventBusPort,
+{
     event_bus
         .publish(event, topic)
         .await
@@ -16,6 +19,7 @@ pub async fn publish_event<T: EventBusPort>(
             e
         })
 }
+
 
 pub fn generic_error_handler(e: anyhow::Error) {
     error!("Error on component: {}", e);
