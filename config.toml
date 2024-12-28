@@ -1,0 +1,140 @@
+# Event Bus Configuration
+[event_bus]
+type = "zmq"
+zmq_address = "tcp://127.0.0.1:5555"
+heartbeat_interval = 5000  # milliseconds
+
+# Component Configurations
+[components]
+ # Exchange configurations
+ [components.exchanges.kraken]
+ enabled = true
+ api_url = "wss://ws.kraken.com"
+ api_key = ""  # Add your API key here
+ api_secret = ""  # Add your API secret here
+ pairs = ["XBT/USD", "ETH/USD"]
+ reconnect_interval = 5000  # milliseconds
+ max_reconnect_attempts = 3
+ 
+ [components.exchanges.coinbase]
+ enabled = true
+ api_url = "wss://ws-feed.exchange.coinbase.com"
+ api_key = ""  # Add your API key here
+ api_secret = ""  # Add your API secret here
+ pairs = ["BTC-USD", "ETH-USD"]
+ reconnect_interval = 5000  # milliseconds
+ max_reconnect_attempts = 3
+
+ # Strategy configurations
+ [components.strategies.arbitrage]
+ enabled = true
+ pairs = ["XBT/USD", "ETH/USD"]
+ exchanges = ["kraken", "coinbase"]
+ params = {
+     arbitrage_threshold = 0.01,  # 1% minimum spread
+     min_profit = 100.0,         # Minimum profit in USD
+     max_position_size = 1.0,    # Maximum position size in BTC
+     execution_timeout = 5000    # milliseconds
+ }
+ 
+ [components.strategies.mean_reversion]
+ enabled = false
+ pairs = ["BTC-USD", "ETH-USD"]
+ exchanges = ["coinbase"]
+ params = {
+     moving_average_period = 20,
+     entry_threshold = 2.0,
+     exit_threshold = 0.5,
+     position_size = 0.1,
+     stop_loss = 0.02
+ }
+ # Broker configuration
+ [components.broker.interactive_broker]
+ enabled = true
+ host = "localhost"
+ port = 7497
+ client_id = 1
+ account_id = ""  # Add your account ID here
+ paper_trading = true
+ max_retries = 3
+ timeout = 5000  # milliseconds
+
+ # Data transformation configurations
+ [components.data_transformations.sma_filter]
+ enabled = true
+ source_topic = "market.data"
+ destination_topic = "market.data.sma"
+ params = {
+     period = 10,
+     min_samples = 10,
+     update_interval = 1000  # milliseconds
+ }
+ 
+ [components.data_transformations.threshold_filter]
+ enabled = true
+ source_topic = "market.data.sma"
+ destination_topic = "market.data.signals"
+ params = {
+     threshold = 0.01,
+     direction = "both",  # "positive", "negative", or "both"
+     window_size = 5
+ }
+ # UI configuration
+ [components.ui]
+ enabled = true
+ host = "127.0.0.1"
+ port = 8080
+ topics = ["market.data", "market.signals", "orders", "trades", "metrics", "audit"]
+ refresh_interval = 1000  # milliseconds
+ 
+ # Logging configuration
+ [components.logging]
+ enabled = true
+ level = "info"  # debug, info, warn, error
+ file = "trading_platform.log"
+ max_size = 100  # MB
+ max_files = 5
+ topics = ["market.data", "market.signals", "orders", "trades", "metrics", "audit"]
+ 
+ # Metrics configuration
+ [components.metrics]
+ enabled = true
+ host = "127.0.0.1"
+ port = 9090
+ export_interval = 10000  # milliseconds
+ topics = ["market.data", "orders", "trades", "performance"]
+ 
+ # Audit configuration
+ [components.audit]
+ enabled = true
+ storage_path = "./audit_logs"
+ retention_days = 30
+ topics = ["orders", "trades", "account", "system"]
+
+ # Persistence configuration
+ [persistence]
+ type = "postgres"  # memory, postgres, mongodb
+ postgres = {
+     host = "localhost",
+     port = 5432,
+     database = "trading_platform",
+     username = "trading_user",
+     password = "",  # Add your database password here
+     max_connections = 5
+ }
+ 
+ # Security configuration
+ [security]
+ type = "jwt"  # basic, jwt
+ jwt_secret = ""  # Add your JWT secret here
+ token_expiry = 3600  # seconds
+ users = [
+     { username = "admin", password = "", role = "admin" },  # Add hashed password here
+     { username = "trader", password = "", role = "trader" }  # Add hashed password here
+ ]
+ 
+ # Rate limiting
+ [security.rate_limit]
+ enabled = true
+ requests_per_minute = 60
+ burst = 10
